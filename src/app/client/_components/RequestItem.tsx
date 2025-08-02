@@ -10,9 +10,10 @@ interface RequestItemProps {
   request: Request;
   isSelected: boolean;
   onSelection: (id: string, type: 'request' | 'group') => void;
+  onImageClick: (imageUrl: string) => void; // Ajout pour l'image cliquable
 }
 
-export default function RequestItem({ request, isSelected, onSelection }: RequestItemProps) {
+export default function RequestItem({ request, isSelected, onSelection, onImageClick }: RequestItemProps) {
   const {
     attributes,
     listeners,
@@ -29,37 +30,41 @@ export default function RequestItem({ request, isSelected, onSelection }: Reques
   const placeholderImage = 'https://via.placeholder.com/100';
 
   return (
-    <div
+    <tr
       ref={setNodeRef}
       style={style}
       onClick={() => onSelection(request.id, 'request')}
-      {...attributes}
-      className={`flex items-center bg-white p-3 border rounded-md shadow-sm transition-colors duration-200 cursor-pointer ${isSelected ? 'border-black' : 'border-gray-200 hover:border-gray-400'} touch-none`}
+      className={`bg-white transition-colors duration-200 cursor-pointer ${isSelected ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
     >
-      <input 
-        type="checkbox" 
-        className="mr-3 h-4 w-4 accent-black pointer-events-none"
-        checked={isSelected}
-        readOnly
-      />
-      <Image
-        src={request.image_url || placeholderImage}
-        alt={request.name}
-        width={48}
-        height={48}
-        className="w-12 h-12 rounded-md object-cover mr-4 bg-gray-100"
-      />
-      <div className="flex-1">
-        <p className="font-semibold text-black">{request.name}</p>
-        <p className="text-sm text-gray-600">Quantité : {request.quantity}</p>
-      </div>
-      <div 
+      <td className="p-4 w-12" {...attributes}>
+        <input 
+          type="checkbox" 
+          className="h-4 w-4 accent-black pointer-events-none"
+          checked={isSelected}
+          readOnly
+        />
+      </td>
+      <td className="p-4 w-20">
+        <button type="button" onClick={(e) => { e.stopPropagation(); onImageClick(request.image_url || placeholderImage); }}>
+          <Image
+            src={request.image_url || placeholderImage}
+            alt={request.name}
+            width={48}
+            height={48}
+            className="w-12 h-12 rounded-md object-cover bg-gray-100"
+          />
+        </button>
+      </td>
+      <td className="p-4 font-semibold">{request.name}</td>
+      <td className="p-4">{request.quantity}</td>
+      <td className="p-4 text-sm text-gray-600">{request.specification}</td>
+      <td 
         {...listeners}
-        className="p-2 cursor-grab text-gray-400 hover:text-black"
+        className="p-4 w-12 cursor-grab text-gray-400 hover:text-black"
         onClick={(e) => e.stopPropagation()}
       >
         <GripVertical className="h-5 w-5" />
-      </div>
-    </div>
+      </td>
+    </tr>
   );
 }

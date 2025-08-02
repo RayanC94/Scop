@@ -53,7 +53,7 @@ export default function CompanyFormModal({ open, onOpenChange, onSave, companyTo
           </Dialog.Title>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="company-name" className="text-sm font-medium">Nom de l'entreprise (obligatoire)</label>
+              <label htmlFor="company-name" className="text-sm font-medium">Nom de l&apos;entreprise (obligatoire)</label>
               <input id="company-name" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-md mt-1" required />
             </div>
             <div>
