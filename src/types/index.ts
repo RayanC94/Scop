@@ -15,3 +15,12 @@ export interface RequestGroup {
   position?: number | null; // Ajout de la position
   last_modified: string; // On garde pour le groupe
 }
+
+export interface Company {
+  id: string;
+  created_at: string;
+  name: string;
+  address: string | null;
+  vat_number: string | null;
+  country: string | null;
+}

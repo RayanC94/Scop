@@ -1,6 +1,15 @@
+// src/app/client/layout.tsx
+import React from 'react';
+import SidebarLeft from './_components/SidebarLeft';
+
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
-    // Le layout ne contient plus que les enfants.
-    // La structure (sidebars, main) est maintenant gérée directement
-    // dans la page du dashboard pour faciliter la communication.
-    return <>{children}</>;
-  }
+  return (
+    <div className="flex h-screen bg-gray-50 text-gray-800">
+      <SidebarLeft />
+      {/* La balise <main> prend maintenant tout l'espace restant */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {children}
+      </main>
+    </div>
+  );
+}

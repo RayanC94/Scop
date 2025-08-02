@@ -10,10 +10,11 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 import RequestItem from '../_components/RequestItem';
 import RequestGroup from '../_components/RequestGroup';
 import SidebarRight from '../_components/SidebarRight';
-import SidebarLeft from '../_components/SidebarLeft';
 import AddRequestModal from '../_components/AddRequestModal';
 import ConfirmDeleteModal from '../_components/ConfirmDeleteModal';
 import AddGroupModal from '../_components/AddGroupModal';
+import EditModal from '../_components/EditModal';
+import MoveItemsModal from '../_components/MoveItemsModal';
 
 export default function DashboardPage() {
   const [items, setItems] = useState<(Request | RequestGroupType)[]>([]);
@@ -22,12 +23,14 @@ export default function DashboardPage() {
   const [isAddRequestModalOpen, setIsAddRequestModalOpen] = useState(false);
   const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
+  const [itemToEdit, setItemToEdit] = useState<Request | RequestGroupType | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
-    // Ne pas montrer le loader pour les re-fetch rapides pour une meilleure UX
-    // setLoading(true); 
+    setLoading(true); 
     
     const { data: groupsData, error: groupsError } = await supabase
       .from('groups')
@@ -44,9 +47,7 @@ export default function DashboardPage() {
       console.error('Erreur de chargement:', groupsError || requestsError);
     } else {
       const allItems: (Request | RequestGroupType)[] = [...(groupsData || []), ...(freeRequestsData || [])];
-      // Tri principal par position
       allItems.sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity));
-      // Tri secondaire des requêtes dans les groupes (si elles ont une position)
       allItems.forEach(item => {
         if ('requests' in item) {
           item.requests.sort((a, b) => (a.position ?? Infinity) - (b.position ?? Infinity));
@@ -63,28 +64,9 @@ export default function DashboardPage() {
   }, [fetchData]);
 
   const isSingleGroupSelected = useMemo(() => {
-    // 1. Trouver tous les groupes sélectionnés
-    const selectedGroups = items.filter(
-      item => 'requests' in item && selectedIds.includes(item.id)
-    ) as RequestGroupType[];
-
-    // 2. S'il n'y a pas exactement un groupe sélectionné, ce n'est pas le bon contexte
-    if (selectedGroups.length !== 1) {
-      return false;
-    }
-
-    // 3. Vérifier qu'aucune requête libre n'est sélectionnée en même temps
-    const selectedFreeRequests = items.filter(
-      item => !('requests' in item) && selectedIds.includes(item.id)
-    );
-
-    // S'il y a des requêtes libres sélectionnées, ce n'est pas un contexte de groupe unique
-    if (selectedFreeRequests.length > 0) {
-      return false;
-    }
-
-    // C'est bien un contexte de groupe unique
-    return true;
+    if (selectedIds.length !== 1) return false;
+    const selectedItem = items.find(item => item.id === selectedIds[0]);
+    return !!(selectedItem && 'requests' in selectedItem);
   }, [selectedIds, items]);
 
   const getTopPosition = (): number => {
@@ -93,33 +75,34 @@ export default function DashboardPage() {
     return (topItem.position ?? 0) - 1;
   };
 
-  const handleSelection = (id: string) => {
+  const handleSelection = (id: string, type: 'request' | 'group') => {
+    const item = items.find(i => i.id === id) || items.flatMap(i => 'requests' in i ? i.requests : []).find(r => r.id === id);
+    if (!item) return;
+
     setSelectedIds(prevSelectedIds => {
         const newSelectedIds = new Set(prevSelectedIds);
-        const item = items.find(i => i.id === id) || items.flatMap(i => 'requests' in i ? i.requests : []).find(r => r.id === id);
-        if (!item) return prevSelectedIds;
 
-        // CAS 1 : Clic sur un groupe
-        if ('requests' in item) {
-            const isSelected = newSelectedIds.has(item.id);
-            if (isSelected) {
+        if (type === 'group' && 'requests' in item) {
+            const group = item;
+            const childIds = group.requests.map(r => r.id);
+            const isGroupSelected = newSelectedIds.has(group.id);
+            const areAllChildrenSelected = childIds.every(cid => newSelectedIds.has(cid));
+
+            if (isGroupSelected && areAllChildrenSelected) {
+                childIds.forEach(cid => newSelectedIds.delete(cid));
+            } else if (isGroupSelected) {
+                newSelectedIds.delete(group.id);
+            } else {
+                newSelectedIds.add(group.id);
+                childIds.forEach(cid => newSelectedIds.add(cid));
+            }
+        } else if (type === 'request' && !('requests' in item)) {
+            if (newSelectedIds.has(item.id)) {
                 newSelectedIds.delete(item.id);
-                item.requests.forEach(r => newSelectedIds.delete(r.id));
             } else {
                 newSelectedIds.add(item.id);
-                item.requests.forEach(r => newSelectedIds.add(r.id));
-            }
-        } 
-        // CAS 2 : Clic sur une requête
-        else {
-            const isSelected = newSelectedIds.has(item.id);
-            if (isSelected) {
-                newSelectedIds.delete(item.id);
-            } else {
-                newSelectedIds.add(item.id);
             }
 
-            // Vérifier le statut du groupe parent
             const parentGroup = items.find(g => 'requests' in g && g.requests.some(r => r.id === item.id)) as RequestGroupType | undefined;
             if (parentGroup) {
                 const allChildrenSelected = parentGroup.requests.every(r => newSelectedIds.has(r.id));
@@ -165,15 +148,33 @@ export default function DashboardPage() {
     const groupIdsToDelete: string[] = [];
     selectedIds.forEach(id => {
       const item = items.find(i => i.id === id);
-      if (item && 'requests' in item) { groupIdsToDelete.push(id); } 
-      else if (item) { requestIdsToDelete.push(id); }
+      if (item) {
+        if ('requests' in item) {
+          groupIdsToDelete.push(id);
+        } else {
+          const parentGroup = items.find(g => 'requests' in g && g.requests.some(r => r.id === id));
+          if (!parentGroup || !selectedIds.includes(parentGroup.id)) {
+            requestIdsToDelete.push(id);
+          }
+        }
+      }
     });
-    if (groupIdsToDelete.length > 0) { alert("La suppression de groupes entiers n'est pas encore implémentée."); return; }
-    if (requestIdsToDelete.length === 0) return;
-    const { error } = await supabase.from('requests').delete().in('id', requestIdsToDelete);
-    if (error) { 
-      console.error('Erreur lors de la suppression:', error); 
-      alert(error.message); 
+
+    const deletionPromises = [];
+    if (groupIdsToDelete.length > 0) {
+      deletionPromises.push(supabase.from('groups').delete().in('id', groupIdsToDelete));
+    }
+    if (requestIdsToDelete.length > 0) {
+      deletionPromises.push(supabase.from('requests').delete().in('id', requestIdsToDelete));
+    }
+    if (deletionPromises.length === 0) return;
+
+    const results = await Promise.all(deletionPromises);
+    const errors = results.map(res => res.error).filter(Boolean);
+
+    if (errors.length > 0) {
+      console.error('Erreurs:', errors);
+      alert(`Des erreurs sont survenues: ${errors.map(e => e.message).join(', ')}`);
     } else {
       fetchData();
       setSelectedIds([]);
@@ -184,12 +185,10 @@ export default function DashboardPage() {
     const { active, over } = event;
     const activeId = String(active.id);
     const overId = over ? String(over.id) : null;
-
     if (activeId === overId) return;
 
     let activeItem: Request | undefined;
     let sourceGroupId: string | null = null;
-
     for (const item of items) {
         if (item.id === activeId && !('requests' in item)) { activeItem = item; break; }
         if ('requests' in item) {
@@ -202,24 +201,18 @@ export default function DashboardPage() {
     const overItem = overId ? items.find(i => i.id === overId) : null;
     const overIsGroup = overItem && 'requests' in overItem;
 
-    // CAS 1: Déplacer une requête VERS un groupe
     if (overIsGroup) {
         await supabase.from('requests').update({ group_id: overId, position: null }).eq('id', activeId);
         await supabase.from('groups').update({ position: getTopPosition() }).eq('id', overId);
-    } 
-    // CAS 2: Déplacer une requête HORS d'un groupe ou ré-ordonner
-    else {
-        // Si on déplace hors d'un groupe (même dans le vide)
+    } else {
         if (sourceGroupId) {
             const newPosition = overId ? items.findIndex(i => i.id === overId) : items.length;
             await supabase.from('requests').update({ group_id: null, position: newPosition }).eq('id', activeId);
-        }
-        // Si on ré-ordonne la liste principale
-        else if (overId) {
+        } else if (overId) {
             const oldIndex = items.findIndex(i => i.id === activeId);
             const newIndex = items.findIndex(i => i.id === overId);
             const newItems = arrayMove(items, oldIndex, newIndex);
-            setItems(newItems); // Mise à jour optimiste
+            setItems(newItems);
             const updates = newItems.map((item, index) => {
                 const table = 'requests' in item ? 'groups' : 'requests';
                 return supabase.from(table).update({ position: index }).eq('id', item.id);
@@ -231,7 +224,6 @@ export default function DashboardPage() {
   };
 
   const handleOpenAddRequestToGroup = () => {
-    // On trouve le groupe sélectionné, même si d'autres de ses requêtes le sont aussi
     const selectedGroup = items.find(item => 'requests' in item && selectedIds.includes(item.id));
     if(selectedGroup) {
         setTargetGroupId(selectedGroup.id);
@@ -239,14 +231,56 @@ export default function DashboardPage() {
     }
   };
 
+  const handleOpenEditModal = () => {
+    if (selectedIds.length !== 1) return;
+    const selectedItem = items.find(i => i.id === selectedIds[0]) || 
+                         items.flatMap(i => 'requests' in i ? i.requests : []).find(r => r.id === selectedIds[0]);
+    if (selectedItem) {
+      setItemToEdit(selectedItem);
+      setIsEditModalOpen(true);
+    }
+  };
+
+  const handleUpdateItem = async (id: string, updates: Partial<Request | RequestGroupType>, table: 'requests' | 'groups') => {
+    const { error } = await supabase.from(table).update(updates).eq('id', id);
+    if (error) {
+      console.error("Erreur de mise à jour:", error);
+    } else {
+      fetchData();
+    }
+  };
+  
+  const handleMoveItems = async (destinationGroupId: string) => {
+    const requestIdsToMove = selectedIds.filter(id => {
+      const item = items.find(i => i.id === id) || items.flatMap(i => 'requests' in i ? i.requests : []).find(r => r.id === id);
+      return item && !('requests' in item);
+    });
+
+    if (requestIdsToMove.length === 0) return;
+
+    const { error } = await supabase
+      .from('requests')
+      .update({ group_id: destinationGroupId, position: null })
+      .in('id', requestIdsToMove);
+
+    if (error) {
+      console.error("Erreur de déplacement:", error);
+    } else {
+      await supabase.from('groups').update({ position: getTopPosition() }).eq('id', destinationGroupId);
+      fetchData();
+      setSelectedIds([]);
+    }
+  };
+
+  const availableGroups = useMemo(() => items.filter(item => 'requests' in item) as RequestGroupType[], [items]);
+
   if (loading && !hasMounted) { 
-    return <div className="flex h-screen items-center justify-center"><p>Chargement...</p></div>; 
+    return <div className="flex-1 flex items-center justify-center"><p>Chargement...</p></div>; 
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800">
-      <SidebarLeft />
-      <main className="flex-1 p-6 overflow-y-auto">
+    <>
+      <div className="flex-1 p-6 overflow-y-auto">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <div className="flex space-x-3">
@@ -276,14 +310,18 @@ export default function DashboardPage() {
               </SortableContext>
             </DndContext>
         )}
-      </main>
+      </div>
 
-      <SidebarRight 
-        selectedCount={selectedIds.length} 
-        isGroupSelected={isSingleGroupSelected}
-        onDelete={() => setIsDeleteModalOpen(true)}
-        onAddRequestToGroup={handleOpenAddRequestToGroup}
-      />
+      <aside className="w-72 bg-white p-4 border-l border-gray-200 self-start">
+        <SidebarRight 
+          selectedCount={selectedIds.length} 
+          isGroupSelected={isSingleGroupSelected}
+          onDelete={() => setIsDeleteModalOpen(true)}
+          onAddRequestToGroup={handleOpenAddRequestToGroup}
+          onEdit={handleOpenEditModal}
+          onMove={() => setIsMoveModalOpen(true)}
+        />
+      </aside>
 
       <AddRequestModal 
         open={isAddRequestModalOpen} 
@@ -300,6 +338,18 @@ export default function DashboardPage() {
         onOpenChange={setIsDeleteModalOpen}
         onConfirm={handleDeleteSelected}
       />
-    </div>
+      <EditModal
+        open={isEditModalOpen}
+        onOpenChange={setIsEditModalOpen}
+        itemToEdit={itemToEdit}
+        onUpdate={handleUpdateItem}
+      />
+      <MoveItemsModal
+        open={isMoveModalOpen}
+        onOpenChange={setIsMoveModalOpen}
+        onMove={handleMoveItems}
+        groups={availableGroups}
+      />
+    </>
   );
 }

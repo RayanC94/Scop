@@ -10,7 +10,7 @@ import { CSS } from '@dnd-kit/utilities';
 interface RequestGroupProps {
   group: RequestGroupType;
   selectedIds: string[];
-  onSelection: (id: string) => void;
+  onSelection: (id: string, type: 'request' | 'group') => void;
   isSelected: boolean;
 }
 
@@ -36,7 +36,7 @@ export default function RequestGroup({ group, selectedIds, onSelection, isSelect
       <div className={`border rounded-lg overflow-hidden transition-colors ${isOver ? 'border-black bg-gray-100' : isSelected ? 'border-black bg-white' : 'bg-gray-50 border-gray-200'}`}>
         <div
           {...attributes}
-          onClick={() => onSelection(group.id)}
+          onClick={() => onSelection(group.id, 'group')}
           className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-200/50"
         >
           <div className="flex items-center flex-1">

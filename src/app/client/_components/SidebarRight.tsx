@@ -9,6 +9,7 @@ interface SidebarRightProps {
   onDelete: () => void;
   onAddRequestToGroup: () => void;
   onEdit: () => void;
+  onMove: () => void; // On ajoute la prop pour le déplacement
 }
 
 const ActionButton = ({ icon, label, onClick, className = '' }: { icon: React.ReactNode, label: string, onClick?: () => void, className?: string }) => (
@@ -18,9 +19,11 @@ const ActionButton = ({ icon, label, onClick, className = '' }: { icon: React.Re
   </button>
 );
 
-export default function SidebarRight({ selectedCount, isGroupSelected, onDelete, onAddRequestToGroup, onEdit }: SidebarRightProps) {
+export default function SidebarRight({ selectedCount, isGroupSelected, onDelete, onAddRequestToGroup, onEdit, onMove }: SidebarRightProps) {
   const hasSelection = selectedCount > 0;
   const isSingleSelection = selectedCount === 1;
+  // On vérifie si au moins une requête est sélectionnée (pas que des groupes)
+  const hasRequestsSelected = !isGroupSelected || selectedCount > 1;
 
   return (
     <div>
@@ -39,8 +42,7 @@ export default function SidebarRight({ selectedCount, isGroupSelected, onDelete,
           </p>
           <div className="border-t my-2"></div>
 
-          {/* Action spécifique si UN SEUL groupe est sélectionné */}
-          {isGroupSelected && (
+          {isGroupSelected && isSingleSelection && (
             <ActionButton 
                 icon={<Plus className="w-4 h-4 mr-3" />} 
                 label="Ajouter une requête"
@@ -48,15 +50,14 @@ export default function SidebarRight({ selectedCount, isGroupSelected, onDelete,
             />
           )}
 
-          {/* Actions communes à toutes les sélections */}
           <ActionButton icon={<Download className="w-4 h-4 mr-3" />} label="Télécharger le devis" />
           <ActionButton icon={<FileText className="w-4 h-4 mr-3" />} label="Demander la facture" />
           
-          {/* Action de modification si UNE SEULE LIGNE est sélectionnée (groupe ou requête) */}
           {isSingleSelection && <ActionButton icon={<Edit className="w-4 h-4 mr-3" />} label="Modifier" onClick={onEdit} />}
           
-          {/* Actions communes à toutes les sélections */}
-          <ActionButton icon={<Move className="w-4 h-4 mr-3" />} label="Déplacer" />
+          {/* Le bouton "Déplacer" n'apparaît que si des requêtes sont sélectionnées */}
+          {hasRequestsSelected && <ActionButton icon={<Move className="w-4 h-4 mr-3" />} label="Déplacer" onClick={onMove} />}
+          
           <ActionButton icon={<Archive className="w-4 h-4 mr-3" />} label="Archiver" />
           <ActionButton 
               icon={<Trash2 className="w-4 h-4 mr-3 text-red-600" />} 
