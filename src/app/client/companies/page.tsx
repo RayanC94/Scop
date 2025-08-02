@@ -34,14 +34,17 @@ export default function CompaniesPage() {
     setIsModalOpen(true);
   };
 
-  const handleSaveCompany = async (companyData: Omit<Company, 'id' | 'created_at'>) => {
+  const handleSaveCompany = async (companyData: Omit<Company, 'id' | 'created_at' | 'user_id'>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     if (companyToEdit) {
       // Mise à jour
       const { error } = await supabase.from('companies').update(companyData).eq('id', companyToEdit.id);
       if (error) console.error("Erreur de mise à jour:", error);
     } else {
-      // Création
-      const { error } = await supabase.from('companies').insert(companyData);
+      // Création, en ajoutant l'user_id
+      const { error } = await supabase.from('companies').insert({ ...companyData, user_id: user.id });
       if (error) console.error("Erreur d'insertion:", error);
     }
     fetchCompanies();

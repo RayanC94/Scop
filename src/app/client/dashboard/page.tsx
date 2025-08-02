@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Request, RequestGroup as RequestGroupType } from '@/types';
 import { Plus } from 'lucide-react';
@@ -28,20 +29,18 @@ export default function DashboardPage() {
   const [itemToEdit, setItemToEdit] = useState<Request | RequestGroupType | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
+  const router = useRouter();
 
   const fetchData = useCallback(async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+    
     setLoading(true); 
-    
-    const { data: groupsData, error: groupsError } = await supabase
-      .from('groups')
-      .select('*, requests(*)')
-      .order('position');
-    
-    const { data: freeRequestsData, error: requestsError } = await supabase
-      .from('requests')
-      .select('*')
-      .is('group_id', null)
-      .order('position');
+    const { data: groupsData, error: groupsError } = await supabase.from('groups').select('*, requests(*)').order('position');
+    const { data: freeRequestsData, error: requestsError } = await supabase.from('requests').select('*').is('group_id', null).order('position');
 
     if (groupsError || requestsError) {
       console.error('Erreur de chargement:', groupsError || requestsError);
@@ -56,12 +55,18 @@ export default function DashboardPage() {
       setItems(allItems);
     }
     setLoading(false);
-  }, []);
+  }, [router]);
 
   useEffect(() => { 
     fetchData(); 
     setHasMounted(true); 
   }, [fetchData]);
+
+  const { freeRequests, groupedItems } = useMemo(() => {
+    const freeRequests = items.filter(item => !('requests' in item)) as Request[];
+    const groupedItems = items.filter(item => 'requests' in item) as RequestGroupType[];
+    return { freeRequests, groupedItems };
+  }, [items]);
 
   const isSingleGroupSelected = useMemo(() => {
     if (selectedIds.length !== 1) return false;
@@ -118,13 +123,16 @@ export default function DashboardPage() {
   };
 
   const handleAddRequest = async (data: Omit<Request, 'id' | 'last_modified' | 'position'>) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const { name, quantity, image_url, specification } = data;
     const groupId = targetGroupId;
     let newPosition: number | null = null;
     if (!groupId) { 
       newPosition = getTopPosition(); 
     }
-    const { error } = await supabase.from('requests').insert({ name, quantity, image_url, specification, group_id: groupId, position: newPosition });
+    const { error } = await supabase.from('requests').insert({ name, quantity, image_url, specification, group_id: groupId, position: newPosition, user_id: user.id });
     if (error) { 
       console.error("Erreur:", error); 
     } else {
@@ -138,25 +146,28 @@ export default function DashboardPage() {
   };
   
   const handleAddGroup = async (name: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
     const newPosition = getTopPosition();
-    const { error } = await supabase.from('groups').insert({ name, position: newPosition });
+    const { error } = await supabase.from('groups').insert({ name, position: newPosition, user_id: user.id });
     if (!error) fetchData();
   };
 
   const handleDeleteSelected = async () => {
     const requestIdsToDelete: string[] = [];
     const groupIdsToDelete: string[] = [];
-    
-    const allRequests = items.flatMap(i => 'requests' in i ? i.requests : i);
-
     selectedIds.forEach(id => {
-      const isGroup = items.some(item => item.id === id && 'requests' in item);
-      const isRequest = allRequests.some(req => req.id === id);
-
-      if (isGroup) {
-        groupIdsToDelete.push(id);
-      } else if (isRequest) {
-        requestIdsToDelete.push(id);
+      const item = items.find(i => i.id === id);
+      if (item) {
+        if ('requests' in item) {
+          groupIdsToDelete.push(id);
+        } else {
+          const parentGroup = items.find(g => 'requests' in g && g.requests.some(r => r.id === id));
+          if (!parentGroup || !selectedIds.includes(parentGroup.id)) {
+            requestIdsToDelete.push(id);
+          }
+        }
       }
     });
 
@@ -251,17 +262,21 @@ export default function DashboardPage() {
   };
   
   const handleMoveItems = async (destinationGroupId: string | null) => {
-    const allRequests = items.flatMap(i => 'requests' in i ? i.requests : i);
-    const requestIdsToMove = selectedIds.filter(id => allRequests.some(r => r.id === id && !('requests' in r)));
+    const requestIdsToMove = selectedIds.filter(id => {
+      const item = items.find(i => i.id === id) || items.flatMap(i => 'requests' in i ? i.requests : []).find(r => r.id === id);
+      return item && !('requests' in item);
+    });
 
     if (requestIdsToMove.length === 0) return;
 
     if (destinationGroupId === null) {
       const topPosition = getTopPosition();
-      const { error } = await supabase
-        .from('requests')
-        .update({ group_id: null, position: topPosition - 1 })
-        .in('id', requestIdsToMove);
+      const updates = requestIdsToMove.map((id, index) => ({
+        id: id,
+        group_id: null,
+        position: topPosition - index
+      }));
+      const { error } = await supabase.from('requests').upsert(updates);
       if (error) console.error("Erreur de déplacement:", error);
     } 
     else {
@@ -299,21 +314,37 @@ export default function DashboardPage() {
         </div>
         
         {hasMounted && (
-            <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-              <SortableContext 
-                items={items.flatMap(i => 'requests' in i ? [i.id, ...i.requests.map(r => r.id)] : [i.id])}
-              >
-                <div className="space-y-4">
-                  {items.map((item) => {
-                    if ('requests' in item) {
-                      return <RequestGroup key={item.id} group={item} selectedIds={selectedIds} onSelection={handleSelection} isSelected={selectedIds.includes(item.id)} />;
-                    } else {
-                      return <RequestItem key={item.id} request={item} isSelected={selectedIds.includes(item.id)} onSelection={handleSelection} />;
-                    }
-                  })}
-                </div>
-              </SortableContext>
-            </DndContext>
+          <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="p-4 w-12"></th>
+                    <th className="p-4 w-20">Image</th>
+                    <th className="p-4">Produit</th>
+                    <th className="p-4">Quantité</th>
+                    <th className="p-4">Spécification</th>
+                    <th className="p-4 w-12"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <SortableContext 
+                    items={items.flatMap(i => 'requests' in i ? [i.id, ...i.requests.map(r => r.id)] : [i.id])}
+                  >
+                    {freeRequests.map((item) => (
+                      <RequestItem key={item.id} request={item} isSelected={selectedIds.includes(item.id)} onSelection={handleSelection} />
+                    ))}
+                    {groupedItems.map((item) => (
+                      <RequestGroup key={item.id} group={item} selectedIds={selectedIds} onSelection={handleSelection} isSelected={selectedIds.includes(item.id)} />
+                    ))}
+                  </SortableContext>
+                </tbody>
+              </table>
+              {!loading && items.length === 0 && (
+                <p className="p-6 text-center text-gray-500">Aucune requête ou groupe trouvé.</p>
+              )}
+            </div>
+          </DndContext>
         )}
       </div>
 
