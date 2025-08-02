@@ -327,18 +327,18 @@ export default function DashboardPage() {
                     <th className="p-4 w-12"></th>
                   </tr>
                 </thead>
-                <tbody>
-                  <SortableContext 
-                    items={items.flatMap(i => 'requests' in i ? [i.id, ...i.requests.map(r => r.id)] : [i.id])}
-                  >
+                <SortableContext 
+                  items={items.flatMap(i => 'requests' in i ? [i.id, ...i.requests.map(r => r.id)] : [i.id])}
+                >
+                  <tbody>
                     {freeRequests.map((item) => (
                       <RequestItem key={item.id} request={item} isSelected={selectedIds.includes(item.id)} onSelection={handleSelection} />
                     ))}
                     {groupedItems.map((item) => (
                       <RequestGroup key={item.id} group={item} selectedIds={selectedIds} onSelection={handleSelection} isSelected={selectedIds.includes(item.id)} />
                     ))}
-                  </SortableContext>
-                </tbody>
+                  </tbody>
+                </SortableContext>
               </table>
               {!loading && items.length === 0 && (
                 <p className="p-6 text-center text-gray-500">Aucune requête ou groupe trouvé.</p>
