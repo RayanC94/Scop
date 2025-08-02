@@ -6,10 +6,14 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'images.unsplash.com',
       },
-      // AJOUTEZ CETTE NOUVELLE RÈGLE
       {
         protocol: 'https',
         hostname: 'via.placeholder.com',
+      },
+      // AJOUTEZ CETTE NOUVELLE RÈGLE
+      {
+        protocol: 'https',
+        hostname: 'ozwflenpvfqehgnrdphg.supabase.co',
       },
     ],
   },
