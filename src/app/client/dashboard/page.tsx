@@ -146,17 +146,17 @@ export default function DashboardPage() {
   const handleDeleteSelected = async () => {
     const requestIdsToDelete: string[] = [];
     const groupIdsToDelete: string[] = [];
+    
+    const allRequests = items.flatMap(i => 'requests' in i ? i.requests : i);
+
     selectedIds.forEach(id => {
-      const item = items.find(i => i.id === id);
-      if (item) {
-        if ('requests' in item) {
-          groupIdsToDelete.push(id);
-        } else {
-          const parentGroup = items.find(g => 'requests' in g && g.requests.some(r => r.id === id));
-          if (!parentGroup || !selectedIds.includes(parentGroup.id)) {
-            requestIdsToDelete.push(id);
-          }
-        }
+      const isGroup = items.some(item => item.id === id && 'requests' in item);
+      const isRequest = allRequests.some(req => req.id === id);
+
+      if (isGroup) {
+        groupIdsToDelete.push(id);
+      } else if (isRequest) {
+        requestIdsToDelete.push(id);
       }
     });
 
@@ -250,26 +250,31 @@ export default function DashboardPage() {
     }
   };
   
-  const handleMoveItems = async (destinationGroupId: string) => {
-    const requestIdsToMove = selectedIds.filter(id => {
-      const item = items.find(i => i.id === id) || items.flatMap(i => 'requests' in i ? i.requests : []).find(r => r.id === id);
-      return item && !('requests' in item);
-    });
+  const handleMoveItems = async (destinationGroupId: string | null) => {
+    const allRequests = items.flatMap(i => 'requests' in i ? i.requests : i);
+    const requestIdsToMove = selectedIds.filter(id => allRequests.some(r => r.id === id && !('requests' in r)));
 
     if (requestIdsToMove.length === 0) return;
 
-    const { error } = await supabase
-      .from('requests')
-      .update({ group_id: destinationGroupId, position: null })
-      .in('id', requestIdsToMove);
-
-    if (error) {
-      console.error("Erreur de déplacement:", error);
-    } else {
-      await supabase.from('groups').update({ position: getTopPosition() }).eq('id', destinationGroupId);
-      fetchData();
-      setSelectedIds([]);
+    if (destinationGroupId === null) {
+      const topPosition = getTopPosition();
+      const { error } = await supabase
+        .from('requests')
+        .update({ group_id: null, position: topPosition - 1 })
+        .in('id', requestIdsToMove);
+      if (error) console.error("Erreur de déplacement:", error);
+    } 
+    else {
+      const { error } = await supabase
+        .from('requests')
+        .update({ group_id: destinationGroupId, position: null })
+        .in('id', requestIdsToMove);
+      if (error) console.error("Erreur de déplacement:", error);
+      else await supabase.from('groups').update({ position: getTopPosition() }).eq('id', destinationGroupId);
     }
+
+    fetchData();
+    setSelectedIds([]);
   };
 
   const availableGroups = useMemo(() => items.filter(item => 'requests' in item) as RequestGroupType[], [items]);

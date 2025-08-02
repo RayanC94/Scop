@@ -6,7 +6,6 @@ import { X } from 'lucide-react';
 import { useState } from 'react';
 import { Request } from '@/types';
 
-// CORRECTION: Omit 'last_modified' (snake_case) instead of 'lastModified'
 type NewRequestData = Omit<Request, 'id' | 'last_modified' | 'position'>;
 
 interface AddRequestModalProps {
@@ -35,7 +34,10 @@ export default function AddRequestModal({ open, onOpenChange, onAddRequest }: Ad
     setIsUploading(true);
 
     try {
-      const filePath = `public/${Date.now()}_${imageFile.name}`;
+      // CORRECTION : On nettoie le nom du fichier pour le rendre sûr
+      const cleanFileName = imageFile.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const filePath = `public/${Date.now()}_${cleanFileName}`;
+      
       const { error: uploadError } = await supabase.storage
         .from('request-images')
         .upload(filePath, imageFile);
