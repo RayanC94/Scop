@@ -16,6 +16,7 @@ import ConfirmDeleteModal from '../_components/ConfirmDeleteModal';
 import AddGroupModal from '../_components/AddGroupModal';
 import EditModal from '../_components/EditModal';
 import MoveItemsModal from '../_components/MoveItemsModal';
+import ImagePreviewModal from '../_components/ImagePreviewModal';
 
 export default function DashboardPage() {
   const [items, setItems] = useState<(Request | RequestGroupType)[]>([]);
@@ -29,6 +30,7 @@ export default function DashboardPage() {
   const [itemToEdit, setItemToEdit] = useState<Request | RequestGroupType | null>(null);
   const [hasMounted, setHasMounted] = useState(false);
   const [targetGroupId, setTargetGroupId] = useState<string | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const router = useRouter();
 
   const fetchData = useCallback(async () => {
@@ -62,10 +64,9 @@ export default function DashboardPage() {
     setHasMounted(true); 
   }, [fetchData]);
 
-  const { freeRequests, groupedItems } = useMemo(() => {
-    const freeRequests = items.filter(item => !('requests' in item)) as Request[];
+  const { groupedItems } = useMemo(() => {
     const groupedItems = items.filter(item => 'requests' in item) as RequestGroupType[];
-    return { freeRequests, groupedItems };
+    return { groupedItems };
   }, [items]);
 
   const isSingleGroupSelected = useMemo(() => {
@@ -101,7 +102,7 @@ export default function DashboardPage() {
                 newSelectedIds.add(group.id);
                 childIds.forEach(cid => newSelectedIds.add(cid));
             }
-        } else if (type === 'request' && !('requests' in item)) {
+        } else if (type === 'request') {
             if (newSelectedIds.has(item.id)) {
                 newSelectedIds.delete(item.id);
             } else {
@@ -155,21 +156,25 @@ export default function DashboardPage() {
   };
 
   const handleDeleteSelected = async () => {
-    const requestIdsToDelete: string[] = [];
-    const groupIdsToDelete: string[] = [];
-    selectedIds.forEach(id => {
-      const item = items.find(i => i.id === id);
-      if (item) {
-        if ('requests' in item) {
-          groupIdsToDelete.push(id);
-        } else {
-          const parentGroup = items.find(g => 'requests' in g && g.requests.some(r => r.id === id));
-          if (!parentGroup || !selectedIds.includes(parentGroup.id)) {
-            requestIdsToDelete.push(id);
-          }
-        }
-      }
+    const allItemsFlat = items.flatMap(item => 'requests' in item ? [item, ...item.requests] : [item]);
+    
+    const selectedGroupIds = new Set(
+      selectedIds.filter(id => {
+        const item = allItemsFlat.find(i => i.id === id);
+        return item && 'requests' in item;
+      })
+    );
+
+    const requestIdsToDelete = selectedIds.filter(id => {
+      const item = allItemsFlat.find(i => i.id === id);
+      if (!item || 'requests' in item) return false;
+
+      const parentGroup = groupedItems.find(g => g.requests.some(r => r.id === id));
+      
+      return !parentGroup || !selectedGroupIds.has(parentGroup.id);
     });
+
+    const groupIdsToDelete = Array.from(selectedGroupIds);
 
     const deletionPromises = [];
     if (groupIdsToDelete.length > 0) {
@@ -194,44 +199,25 @@ export default function DashboardPage() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
     const activeId = String(active.id);
-    const overId = over ? String(over.id) : null;
-    if (activeId === overId) return;
+    const overId = String(over.id);
 
-    let activeItem: Request | undefined;
-    let sourceGroupId: string | null = null;
-    for (const item of items) {
-        if (item.id === activeId && !('requests' in item)) { activeItem = item; break; }
-        if ('requests' in item) {
-            const nested = item.requests.find(r => r.id === activeId);
-            if (nested) { activeItem = nested; sourceGroupId = item.id; break; }
-        }
+    const oldIndex = items.findIndex(i => i.id === activeId);
+    const newIndex = items.findIndex(i => i.id === overId);
+    
+    if (oldIndex !== newIndex) {
+        const newItems = arrayMove(items, oldIndex, newIndex);
+        setItems(newItems); // Optimistic UI update for reordering
+
+        const updates = newItems.map((item, index) => {
+            const table = 'requests' in item ? 'groups' : 'requests';
+            return supabase.from(table).update({ position: index }).eq('id', item.id);
+        });
+        await Promise.all(updates);
+        fetchData(); // Resync with DB to be safe
     }
-    if (!activeItem) return;
-
-    const overItem = overId ? items.find(i => i.id === overId) : null;
-    const overIsGroup = overItem && 'requests' in overItem;
-
-    if (overIsGroup) {
-        await supabase.from('requests').update({ group_id: overId, position: null }).eq('id', activeId);
-        await supabase.from('groups').update({ position: getTopPosition() }).eq('id', overId);
-    } else {
-        if (sourceGroupId) {
-            const newPosition = overId ? items.findIndex(i => i.id === overId) : items.length;
-            await supabase.from('requests').update({ group_id: null, position: newPosition }).eq('id', activeId);
-        } else if (overId) {
-            const oldIndex = items.findIndex(i => i.id === activeId);
-            const newIndex = items.findIndex(i => i.id === overId);
-            const newItems = arrayMove(items, oldIndex, newIndex);
-            setItems(newItems);
-            const updates = newItems.map((item, index) => {
-                const table = 'requests' in item ? 'groups' : 'requests';
-                return supabase.from(table).update({ position: index }).eq('id', item.id);
-            });
-            await Promise.all(updates);
-        }
-    }
-    fetchData();
   };
 
   const handleOpenAddRequestToGroup = () => {
@@ -269,23 +255,41 @@ export default function DashboardPage() {
 
     if (requestIdsToMove.length === 0) return;
 
+    const updatePromises = [];
+
     if (destinationGroupId === null) {
-      const topPosition = getTopPosition();
-      const updates = requestIdsToMove.map((id, index) => ({
-        id: id,
-        group_id: null,
-        position: topPosition - index
-      }));
-      const { error } = await supabase.from('requests').upsert(updates);
-      if (error) console.error("Erreur de déplacement:", error);
-    } 
-    else {
-      const { error } = await supabase
-        .from('requests')
-        .update({ group_id: destinationGroupId, position: null })
-        .in('id', requestIdsToMove);
-      if (error) console.error("Erreur de déplacement:", error);
-      else await supabase.from('groups').update({ position: getTopPosition() }).eq('id', destinationGroupId);
+        // Déplacement vers les requêtes libres
+        const topPosition = getTopPosition();
+        for (let i = 0; i < requestIdsToMove.length; i++) {
+            const id = requestIdsToMove[i];
+            updatePromises.push(
+                supabase.from('requests').update({
+                    group_id: null,
+                    position: topPosition - i
+                }).eq('id', id)
+            );
+        }
+    } else {
+        // Déplacement vers un groupe spécifique
+        for (const id of requestIdsToMove) {
+            updatePromises.push(
+                supabase.from('requests').update({
+                    group_id: destinationGroupId,
+                    position: null
+                }).eq('id', id)
+            );
+        }
+        updatePromises.push(
+            supabase.from('groups').update({ position: getTopPosition() }).eq('id', destinationGroupId)
+        );
+    }
+
+    const results = await Promise.all(updatePromises);
+    const errors = results.map(res => res.error).filter(Boolean);
+
+    if (errors.length > 0) {
+        console.error("Erreur de déplacement:", errors);
+        alert(`Des erreurs sont survenues lors du déplacement: ${errors.map(e => e.message).join(', ')}`);
     }
 
     fetchData();
@@ -316,7 +320,7 @@ export default function DashboardPage() {
         {hasMounted && (
           <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-              <table className="w-full text-left">
+              <table className="w-full text-left border-collapse">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="p-4 w-12"></th>
@@ -327,33 +331,32 @@ export default function DashboardPage() {
                     <th className="p-4 w-12"></th>
                   </tr>
                 </thead>
-                <SortableContext
-                  items={items.flatMap(i => 'requests' in i ? [i.id, ...i.requests.map(r => r.id)] : [i.id])}
-                >
+                <SortableContext items={items.map(i => i.id)} strategy={verticalListSortingStrategy}>
                   <tbody>
-                    {freeRequests.map((item) => (
-                      <tr key={item.id}>
-                        <td colSpan={6} className="p-0">
-                          <RequestItem
-                            request={item}
-                            isSelected={selectedIds.includes(item.id)}
-                            onSelection={handleSelection}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                    {groupedItems.map((item) => (
-                      <tr key={item.id}>
-                        <td colSpan={6} className="p-0">
+                    {items.map((item) => {
+                      if ('requests' in item) { // C'est un groupe
+                        return (
                           <RequestGroup
+                            key={item.id}
                             group={item}
                             selectedIds={selectedIds}
                             onSelection={handleSelection}
                             isSelected={selectedIds.includes(item.id)}
+                            onImageClick={setPreviewImageUrl}
                           />
-                        </td>
-                      </tr>
-                    ))}
+                        );
+                      } else { // C'est une requête libre
+                        return (
+                          <RequestItem
+                            key={item.id}
+                            request={item}
+                            isSelected={selectedIds.includes(item.id)}
+                            onSelection={handleSelection}
+                            onImageClick={setPreviewImageUrl}
+                          />
+                        );
+                      }
+                    })}
                   </tbody>
                 </SortableContext>
               </table>
@@ -402,6 +405,11 @@ export default function DashboardPage() {
         onOpenChange={setIsMoveModalOpen}
         onMove={handleMoveItems}
         groups={availableGroups}
+      />
+      <ImagePreviewModal
+        open={!!previewImageUrl}
+        onOpenChange={() => setPreviewImageUrl(null)}
+        imageUrl={previewImageUrl}
       />
     </>
   );

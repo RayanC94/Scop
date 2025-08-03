@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation'; // Pour la redirection
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 
 export default function LoginPage() {
@@ -16,18 +16,40 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
 
-    // On utilise la fonction de connexion de Supabase
-    const { error } = await supabase.auth.signInWithPassword({
+    // 1. On connecte l'utilisateur
+    const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      // Si la connexion réussit, on redirige vers le dashboard
-      router.push('/client/dashboard');
+    if (loginError) {
+      setError(loginError.message);
+      setLoading(false);
+      return;
     }
+
+    if (loginData.user) {
+      // 2. Si la connexion réussit, on récupère le profil de l'utilisateur pour connaître son rôle
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', loginData.user.id)
+        .single();
+
+      if (profileError) {
+        setError("Impossible de récupérer le profil de l'utilisateur.");
+        setLoading(false);
+        return;
+      }
+
+      // 3. On redirige en fonction du rôle
+      if (profile && profile.role === 'agent') {
+        router.push('/agent/dashboard');
+      } else {
+        router.push('/client/dashboard');
+      }
+    }
+    
     setLoading(false);
   };
 
@@ -82,7 +104,6 @@ export default function LoginPage() {
           </div>
         </form>
 
-        {/* AJOUTER CE BLOC */}
         <p className="text-center text-sm text-gray-600">
           Pas encore de compte ?{' '}
           <a href="/signup" className="font-semibold text-black hover:underline">
