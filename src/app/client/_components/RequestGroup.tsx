@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { RequestGroup as RequestGroupType } from '@/types';
+import { RequestGroup as RequestGroupType, Request } from '@/types';
 import RequestItem from './RequestItem';
 import { ChevronDown, GripVertical } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
@@ -33,45 +33,45 @@ export default function RequestGroup({ group, selectedIds, onSelection, onImageC
 
   return (
     <>
-      <tr
-        ref={setNodeRef}
-        style={style}
-        onClick={() => onSelection(group.id, 'group')}
-        className={`bg-gray-50 transition-colors duration-200 cursor-pointer ${isSelected ? 'bg-gray-200' : 'hover:bg-gray-100'}`}
-      >
-        <td className="p-4 w-12" {...attributes}>
-          <input 
-            type="checkbox" 
-            className="h-4 w-4 accent-black pointer-events-none"
-            readOnly
-            checked={isSelected}
-          />
-        </td>
-        <td colSpan={4} className="p-4">
-          <div className="flex items-center">
-            <h3 className="font-bold text-lg">{group.name}</h3>
-            <button onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-1 ml-2">
-              <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${isOpen ? '' : '-rotate-90'}`} />
-            </button>
+      <tr ref={setNodeRef} style={style} className="touch-none">
+        <td colSpan={7} className="p-0">
+           <div className={`border rounded-lg overflow-hidden transition-colors bg-gray-50 border-gray-200`}>
+            <div
+              {...attributes}
+              onClick={() => onSelection(group.id, 'group')}
+              className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-200/50"
+            >
+              <div className="flex items-center flex-1">
+                <input 
+                  type="checkbox" 
+                  className="mr-4 h-4 w-4 accent-black pointer-events-none"
+                  readOnly
+                  checked={isSelected}
+                />
+                <h3 className="font-bold text-lg">{group.name}</h3>
+              </div>
+              <button onClick={(e) => { e.stopPropagation(); setIsOpen(!isOpen); }} className="p-1">
+                 <ChevronDown className={`h-5 w-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <div 
+                {...listeners} 
+                className="p-2 cursor-grab ml-2 text-gray-400 hover:text-black"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <GripVertical className="h-5 w-5" />
+              </div>
+            </div>
           </div>
         </td>
-        <td 
-          {...listeners}
-          className="p-4 w-12 cursor-grab text-gray-400 hover:text-black"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <GripVertical className="h-5 w-5" />
-        </td>
       </tr>
-
-      {isOpen && group.requests.map(request => (
-        <RequestItem 
-          key={request.id} 
-          request={request}
-          isSelected={selectedIds.includes(request.id)}
-          onSelection={onSelection}
-          onImageClick={onImageClick}
-        />
+      {isOpen && group.requests.map((request: Request) => (
+          <RequestItem 
+            key={request.id} 
+            request={request}
+            isSelected={selectedIds.includes(request.id)}
+            onSelection={onSelection}
+            onImageClick={onImageClick}
+          />
       ))}
     </>
   );

@@ -4,7 +4,7 @@ import { Request, Offer } from '@/types';
 import * as Dialog from '@radix-ui/react-dialog';
 import { X, Eye, EyeOff, Edit, Trash2 } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 interface OffersModalProps {
@@ -15,22 +15,45 @@ interface OffersModalProps {
 }
 
 export default function OffersModal({ open, onOpenChange, request, onOfferUpdate }: OffersModalProps) {
+  // On utilise un état local pour les offres pour une mise à jour instantanée de l'UI
+  const [localOffers, setLocalOffers] = useState<Offer[]>([]);
+
+  useEffect(() => {
+    if (request?.offers) {
+      setLocalOffers(request.offers);
+    }
+  }, [request]);
+
   const [updatingOfferId, setUpdatingOfferId] = useState<string | null>(null);
 
-  if (!request || !request.offers) return null;
+  if (!request) return null;
 
-  const handleToggleVisibility = async (offer: Offer) => {
-    setUpdatingOfferId(offer.id);
+  const handleToggleVisibility = async (offerToUpdate: Offer) => {
+    setUpdatingOfferId(offerToUpdate.id);
+
+    // Mise à jour optimiste de l'UI
+    setLocalOffers(currentOffers =>
+      currentOffers.map(o =>
+        o.id === offerToUpdate.id ? { ...o, is_visible_to_client: !o.is_visible_to_client } : o
+      )
+    );
+
     const { error } = await supabase
       .from('offers')
-      .update({ is_visible_to_client: !offer.is_visible_to_client })
-      .eq('id', offer.id);
+      .update({ is_visible_to_client: !offerToUpdate.is_visible_to_client })
+      .eq('id', offerToUpdate.id);
 
     if (error) {
       console.error("Erreur lors de la mise à jour de la visibilité:", error);
+      // En cas d'erreur, on annule le changement dans l'UI
+      setLocalOffers(currentOffers =>
+        currentOffers.map(o =>
+          o.id === offerToUpdate.id ? { ...o, is_visible_to_client: offerToUpdate.is_visible_to_client } : o
+        )
+      );
       alert("Une erreur est survenue.");
     } else {
-      // Si la mise à jour réussit, on demande à la page parente de rafraîchir les données
+      // On notifie le parent pour qu'il recharge les données globales en arrière-plan
       onOfferUpdate();
     }
     setUpdatingOfferId(null);
@@ -58,7 +81,7 @@ export default function OffersModal({ open, onOpenChange, request, onOfferUpdate
                 </tr>
               </thead>
               <tbody>
-                {request.offers.map(offer => (
+                {localOffers.map(offer => (
                   <tr key={offer.id} className="border-b last:border-b-0">
                     <td className="p-4">
                       <Image
