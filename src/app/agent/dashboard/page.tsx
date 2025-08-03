@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
 import { Request, RequestGroup as RequestGroupType, Offer } from '@/types';
-import { ChevronDown, User, Eye, EyeOff, Edit, Trash2 } from 'lucide-react';
+import { ChevronDown, User, Eye, EyeOff, Edit, Trash2, AlertTriangle } from 'lucide-react';
 import Image from 'next/image';
 import AddOfferModal from '../_components/AddOfferModal';
 
@@ -20,69 +20,75 @@ type ClientData = {
 export default function AgentDashboardPage() {
   const [clientData, setClientData] = useState<ClientData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null); // Nouvel état pour gérer les erreurs
   const [openClientIds, setOpenClientIds] = useState<Set<string>>(new Set());
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<Request | null>(null);
   const router = useRouter();
 
   const fetchData = useCallback(async () => {
-    // ... (le reste de la fonction fetchData reste identique pour le moment)
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      router.push('/login');
-      return;
-    }
-    
+    setError(null); // Réinitialiser l'erreur à chaque chargement
     setLoading(true);
     
-    const { data, error } = await supabase
-      .from('requests')
-      .select('*, groups(*), profiles(id, email), offers(*)') // On charge les offres en même temps
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Erreur de chargement:', error);
-      setLoading(false);
-      return;
-    }
-
-    const organizedData: { [key: string]: ClientData } = {};
-    
-    data.forEach((d: any) => {
-      const client = d.profiles;
-      if (!client) return;
-
-      if (!organizedData[client.id]) {
-        organizedData[client.id] = {
-          client: { id: client.id, email: client.email },
-          requests: [],
-          groups: [],
-        };
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
       }
       
-      const requestWithOffers = d as RequestWithOffers;
+      const { data, error: fetchError } = await supabase
+        .from('requests')
+        .select('*, groups(*), profiles(id, email), offers(*)')
+        .order('created_at', { ascending: false });
 
-      if (d.groups) {
-        const group = organizedData[client.id].groups.find(g => g.id === d.groups.id);
-        if (group) {
-          group.requests.push(requestWithOffers);
-        } else {
-          organizedData[client.id].groups.push({
-            ...d.groups,
-            requests: [requestWithOffers],
-          });
-        }
-      } else {
-        organizedData[client.id].requests.push(requestWithOffers);
+      if (fetchError) {
+        // Lancer une erreur pour qu'elle soit attrapée par le bloc catch
+        throw fetchError;
       }
-    });
 
-    setClientData(Object.values(organizedData));
-    if (Object.keys(organizedData).length > 0) {
-      setOpenClientIds(new Set([Object.keys(organizedData)[0]]));
+      const organizedData: { [key: string]: ClientData } = {};
+      
+      data.forEach((d: any) => {
+        const client = d.profiles;
+        if (!client) return;
+
+        if (!organizedData[client.id]) {
+          organizedData[client.id] = {
+            client: { id: client.id, email: client.email },
+            requests: [],
+            groups: [],
+          };
+        }
+        
+        const requestWithOffers = d as RequestWithOffers;
+
+        if (d.groups) {
+          const group = organizedData[client.id].groups.find(g => g.id === d.groups.id);
+          if (group) {
+            group.requests.push(requestWithOffers);
+          } else {
+            organizedData[client.id].groups.push({
+              ...d.groups,
+              requests: [requestWithOffers],
+            });
+          }
+        } else {
+          organizedData[client.id].requests.push(requestWithOffers);
+        }
+      });
+
+      setClientData(Object.values(organizedData));
+      if (Object.keys(organizedData).length > 0) {
+        setOpenClientIds(new Set([Object.keys(organizedData)[0]]));
+      }
+
+    } catch (err: any) {
+      console.error("Erreur de chargement détaillée:", { message: err.message, details: err.details, stack: err.stack });
+      setError("Impossible de charger les données. Les permissions sont peut-être incorrectes.");
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   }, [router]);
 
   useEffect(() => { 
@@ -115,6 +121,19 @@ export default function AgentDashboardPage() {
       <div className="flex-1 p-6 overflow-y-auto">
         <h1 className="text-3xl font-bold mb-8">Dashboard Agent</h1>
         
+        {/* AFFICHER LE MESSAGE D'ERREUR S'IL EXISTE */}
+        {error && (
+          <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-6" role="alert">
+            <div className="flex">
+              <div className="py-1"><AlertTriangle className="h-6 w-6 text-red-500 mr-4"/></div>
+              <div>
+                <p className="font-bold">Erreur de chargement</p>
+                <p className="text-sm">{error}</p>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div className="space-y-4">
           {clientData.map(({ client, requests, groups }) => (
             <div key={client.id} className="bg-white border border-gray-200 rounded-lg shadow-sm">
@@ -146,7 +165,7 @@ export default function AgentDashboardPage() {
               )}
             </div>
           ))}
-          {clientData.length === 0 && !loading && (
+          {clientData.length === 0 && !loading && !error && (
             <p className="p-6 text-center text-gray-500">Aucune requête de client trouvée.</p>
           )}
         </div>
