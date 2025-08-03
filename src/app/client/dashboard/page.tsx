@@ -40,9 +40,16 @@ export default function DashboardPage() {
       return;
     }
     
-    setLoading(true); 
-    const { data: groupsData, error: groupsError } = await supabase.from('groups').select('*, requests(*)').order('position');
-    const { data: freeRequestsData, error: requestsError } = await supabase.from('requests').select('*').is('group_id', null).order('position');
+    setLoading(true);
+    const { data: groupsData, error: groupsError } = await supabase
+      .from('groups')
+      .select('*, requests(*, offers(*))')
+      .order('position');
+    const { data: freeRequestsData, error: requestsError } = await supabase
+      .from('requests')
+      .select('*, offers(*)')
+      .is('group_id', null)
+      .order('position');
 
     if (groupsError || requestsError) {
       console.error('Erreur de chargement:', groupsError || requestsError);
