@@ -8,11 +8,13 @@ export interface Request {
   last_modified: string;
   specification?: string | null;
   position?: number | null;
-  // Ajout pour lier la requête à un profil client
+  created_at: string;
+  offers?: Offer[];
   profiles?: {
     id: string;
     email: string;
   } | null;
+  groups?: RequestGroup | null;
 }
 
 export interface RequestGroup {
@@ -21,7 +23,6 @@ export interface RequestGroup {
   requests: Request[];
   position?: number | null;
   last_modified: string;
-  // Ajout pour lier le groupe à un profil client
   profiles?: {
     id: string;
     email: string;
@@ -37,7 +38,6 @@ export interface Company {
   country: string | null;
 }
 
-// NOUVEAU : Interface pour les offres des fournisseurs
 export interface Offer {
   id: string;
   created_at: string;
@@ -47,8 +47,9 @@ export interface Offer {
   packaging_type: string;
   unit_price_rmb: number;
   unit_weight: number;
-  unit_volume: number;
-  quality_details: string;
+  size?: string | null;
+  client_currency: string; // Ajouté
+  exchange_rate: number;   // Ajouté
   remarks: string | null;
   photo_url: string | null;
   is_visible_to_client: boolean;
