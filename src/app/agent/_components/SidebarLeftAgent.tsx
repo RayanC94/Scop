@@ -16,11 +16,10 @@ const SidebarLeftAgent = () => {
 
   const navLinks = [
     { href: '/agent/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '#', label: 'Devis à facturer', icon: FileText },
-    { href: '#', label: 'Factures', icon: FileText },
+    { href: '/agent/invoices', label: 'Factures', icon: FileText },
     { href: '#', label: 'Suivi Commandes', icon: ShoppingCart },
     { href: '#', label: 'Archives', icon: Archive },
-    { href: '#', label: 'Fournisseurs', icon: Building },
+    { href: '/agent/companies', label: 'Mes Compagnies', icon: Building },
   ];
 
   return (

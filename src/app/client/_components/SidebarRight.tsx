@@ -1,3 +1,5 @@
+// src/app/client/_components/SidebarRight.tsx
+
 'use client';
 
 import { Download, FileText, Trash2, Archive, Move, Plus, Edit } from 'lucide-react';
@@ -10,7 +12,10 @@ interface SidebarRightProps {
   onAddRequestToGroup: () => void;
   onEdit: () => void;
   onMove: () => void;
-  selectedTotalPrice: number; // Ajout de la prop pour le total
+  selectedTotalPrice: number;
+  // Nouvelles fonctions pour déclencher la modale
+  onGenerateQuote: () => void;
+  onGenerateInvoice: () => void;
 }
 
 const ActionButton = ({ icon, label, onClick, className = '' }: { icon: React.ReactNode, label: string, onClick?: () => void, className?: string }) => (
@@ -20,7 +25,17 @@ const ActionButton = ({ icon, label, onClick, className = '' }: { icon: React.Re
   </button>
 );
 
-export default function SidebarRight({ selectedCount, isGroupSelected, onDelete, onAddRequestToGroup, onEdit, onMove, selectedTotalPrice }: SidebarRightProps) {
+export default function SidebarRight({ 
+  selectedCount, 
+  isGroupSelected, 
+  onDelete, 
+  onAddRequestToGroup, 
+  onEdit, 
+  onMove, 
+  selectedTotalPrice,
+  onGenerateQuote,
+  onGenerateInvoice
+}: SidebarRightProps) {
   const hasSelection = selectedCount > 0;
   const isSingleSelection = selectedCount === 1;
   const hasRequestsSelected = !isGroupSelected || selectedCount > 1;
@@ -50,8 +65,9 @@ export default function SidebarRight({ selectedCount, isGroupSelected, onDelete,
             />
           )}
 
-          <ActionButton icon={<Download className="w-4 h-4 mr-3" />} label="Télécharger le devis" />
-          <ActionButton icon={<FileText className="w-4 h-4 mr-3" />} label="Demander la facture" />
+          {/* Mise à jour des boutons */}
+          <ActionButton icon={<Download className="w-4 h-4 mr-3" />} label="Télécharger le devis" onClick={onGenerateQuote} />
+          <ActionButton icon={<FileText className="w-4 h-4 mr-3" />} label="Demander la facture" onClick={onGenerateInvoice} />
           
           {isSingleSelection && <ActionButton icon={<Edit className="w-4 h-4 mr-3" />} label="Modifier" onClick={onEdit} />}
           
@@ -65,7 +81,6 @@ export default function SidebarRight({ selectedCount, isGroupSelected, onDelete,
               className="text-red-600"
           />
 
-          {/* Affichage du prix total */}
           {selectedTotalPrice > 0 && (
             <div className="border-t mt-4 pt-4">
               <h3 className="text-sm font-semibold text-gray-500 mb-2">Total estimé</h3>

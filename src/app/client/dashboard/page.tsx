@@ -17,6 +17,8 @@ import AddGroupModal from '../_components/AddGroupModal';
 import EditModal from '../_components/EditModal';
 import MoveItemsModal from '../_components/MoveItemsModal';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
+// Importer la nouvelle modale
+import FacturationModal from '../_components/FacturationModal';
 
 export default function DashboardPage() {
   const [items, setItems] = useState<(Request | RequestGroupType)[]>([]);
@@ -33,7 +35,12 @@ export default function DashboardPage() {
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const router = useRouter();
 
+  // Nouveaux états pour la modale de facturation
+  const [isFacturationModalOpen, setIsFacturationModalOpen] = useState(false);
+  const [facturationType, setFacturationType] = useState<'devis' | 'facture'>('devis');
+
   const fetchData = useCallback(async () => {
+    // ... (la fonction reste inchangée)
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       router.push('/login');
@@ -71,26 +78,38 @@ export default function DashboardPage() {
     setHasMounted(true); 
   }, [fetchData]);
 
-  // Logique de calcul du prix total
+  const allRequestsFlat = useMemo(() => {
+    return items.flatMap(item => 'requests' in item ? item.requests : [item]);
+  }, [items]);
+
+  const selectedRequests = useMemo(() => {
+    return allRequestsFlat.filter(req => selectedIds.includes(req.id));
+  }, [selectedIds, allRequestsFlat]);
+
   const selectedTotalPrice = useMemo(() => {
     let total = 0;
-    const allRequests = items.flatMap(item => 'requests' in item ? item.requests : [item]);
-    
-    selectedIds.forEach(id => {
-      const request = allRequests.find(req => req.id === id);
+    selectedRequests.forEach(request => {
       if (request && request.offers) {
         const visibleOffers = request.offers.filter(offer => offer.is_visible_to_client);
-        if (visibleOffers.length > 0) {
-          // On somme le prix total de chaque offre visible pour la requête sélectionnée
-          visibleOffers.forEach(offer => {
-            total += (offer.unit_price_rmb / offer.exchange_rate) * request.quantity;
-          });
-        }
+        visibleOffers.forEach(offer => {
+          total += (offer.unit_price_rmb / offer.exchange_rate) * request.quantity;
+        });
       }
     });
     return total;
-  }, [selectedIds, items]);
+  }, [selectedRequests]);
 
+  const handleGenerateQuote = () => {
+    setFacturationType('devis');
+    setIsFacturationModalOpen(true);
+  };
+  
+  const handleGenerateInvoice = () => {
+    setFacturationType('facture');
+    setIsFacturationModalOpen(true);
+  };
+
+  // ... (toutes les autres fonctions handle... restent inchangées)
   const { groupedItems } = useMemo(() => {
     const groupedItems = items.filter(item => 'requests' in item) as RequestGroupType[];
     return { groupedItems };
@@ -410,7 +429,9 @@ export default function DashboardPage() {
           onAddRequestToGroup={handleOpenAddRequestToGroup}
           onEdit={handleOpenEditModal}
           onMove={() => setIsMoveModalOpen(true)}
-          selectedTotalPrice={selectedTotalPrice} // Passer le total
+          selectedTotalPrice={selectedTotalPrice}
+          onGenerateQuote={handleGenerateQuote}
+          onGenerateInvoice={handleGenerateInvoice}
         />
       </aside>
 
@@ -445,6 +466,13 @@ export default function DashboardPage() {
         open={!!previewImageUrl}
         onOpenChange={() => setPreviewImageUrl(null)}
         imageUrl={previewImageUrl}
+      />
+      {/* Notre nouvelle modale de facturation */}
+      <FacturationModal 
+        open={isFacturationModalOpen}
+        onOpenChange={setIsFacturationModalOpen}
+        selectedRequests={selectedRequests}
+        type={facturationType}
       />
     </>
   );
