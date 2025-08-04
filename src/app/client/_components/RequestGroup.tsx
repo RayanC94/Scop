@@ -34,7 +34,8 @@ export default function RequestGroup({ group, selectedIds, onSelection, onImageC
   return (
     <>
       <tr ref={setNodeRef} style={style} className="touch-none">
-        <td colSpan={7} className="p-0">
+        {/* Mettre à jour le colSpan pour correspondre au nombre total de colonnes (13) */}
+        <td colSpan={13} className="p-0">
            <div className={`border rounded-lg overflow-hidden transition-colors bg-gray-50 border-gray-200`}>
             <div
               {...attributes}

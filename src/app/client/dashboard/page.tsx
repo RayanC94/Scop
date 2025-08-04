@@ -71,6 +71,26 @@ export default function DashboardPage() {
     setHasMounted(true); 
   }, [fetchData]);
 
+  // Logique de calcul du prix total
+  const selectedTotalPrice = useMemo(() => {
+    let total = 0;
+    const allRequests = items.flatMap(item => 'requests' in item ? item.requests : [item]);
+    
+    selectedIds.forEach(id => {
+      const request = allRequests.find(req => req.id === id);
+      if (request && request.offers) {
+        const visibleOffers = request.offers.filter(offer => offer.is_visible_to_client);
+        if (visibleOffers.length > 0) {
+          // On somme le prix total de chaque offre visible pour la requête sélectionnée
+          visibleOffers.forEach(offer => {
+            total += (offer.unit_price_rmb / offer.exchange_rate) * request.quantity;
+          });
+        }
+      }
+    });
+    return total;
+  }, [selectedIds, items]);
+
   const { groupedItems } = useMemo(() => {
     const groupedItems = items.filter(item => 'requests' in item) as RequestGroupType[];
     return { groupedItems };
@@ -197,7 +217,7 @@ export default function DashboardPage() {
 
     if (errors.length > 0) {
       console.error('Erreurs:', errors);
-      alert(`Des erreurs sont survenues: ${errors.map(e => e.message).join(', ')}`);
+      alert(`Des erreurs sont survenues: ${errors.map(e => e ? e.message : 'Unknown error').join(', ')}`);
     } else {
       fetchData();
       setSelectedIds([]);
@@ -218,7 +238,7 @@ export default function DashboardPage() {
         const newItems = arrayMove(items, oldIndex, newIndex);
         setItems(newItems); // Optimistic UI update for reordering
 
-        const updates = newItems.map((item, index) => {
+        const updates = newItems.map((item: Request | RequestGroupType, index: number) => {
             const table = 'requests' in item ? 'groups' : 'requests';
             return supabase.from(table).update({ position: index }).eq('id', item.id);
         });
@@ -296,7 +316,7 @@ export default function DashboardPage() {
 
     if (errors.length > 0) {
         console.error("Erreur de déplacement:", errors);
-        alert(`Des erreurs sont survenues lors du déplacement: ${errors.map(e => e.message).join(', ')}`);
+        alert(`Des erreurs sont survenues lors du déplacement: ${errors.map(e => e ? e.message : 'Unknown error').join(', ')}`);
     }
 
     fetchData();
@@ -326,15 +346,22 @@ export default function DashboardPage() {
         
         {hasMounted && (
           <DndContext collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto bg-white border border-gray-200 rounded-lg shadow-sm">
+              <table className="min-w-full text-left border-collapse whitespace-nowrap">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="p-4 w-12"></th>
-                    <th className="p-4 w-20">Image</th>
+                    <th className="p-4 w-12 sticky left-0 bg-gray-50 z-10"></th>
+                    <th className="p-4">Image</th>
                     <th className="p-4">Produit</th>
                     <th className="p-4">Quantité</th>
-                    <th className="p-4">Spécification</th>
+                    <th className="p-4">Spécification Client</th>
+                    <th className="p-4">Photo Fournisseur</th>
+                    <th className="p-4">Spécifications Fournisseur</th>
+                    <th className="p-4">Emballage</th>
+                    <th className="p-4">Dimensions</th>
+                    <th className="p-4">Remarques</th>
+                    <th className="p-4">Prix Unitaire</th>
+                    <th className="p-4">Prix Total</th>
                     <th className="p-4 w-12"></th>
                   </tr>
                 </thead>
@@ -383,6 +410,7 @@ export default function DashboardPage() {
           onAddRequestToGroup={handleOpenAddRequestToGroup}
           onEdit={handleOpenEditModal}
           onMove={() => setIsMoveModalOpen(true)}
+          selectedTotalPrice={selectedTotalPrice} // Passer le total
         />
       </aside>
 

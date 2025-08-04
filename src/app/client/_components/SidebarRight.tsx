@@ -9,7 +9,8 @@ interface SidebarRightProps {
   onDelete: () => void;
   onAddRequestToGroup: () => void;
   onEdit: () => void;
-  onMove: () => void; // On ajoute la prop pour le déplacement
+  onMove: () => void;
+  selectedTotalPrice: number; // Ajout de la prop pour le total
 }
 
 const ActionButton = ({ icon, label, onClick, className = '' }: { icon: React.ReactNode, label: string, onClick?: () => void, className?: string }) => (
@@ -19,10 +20,9 @@ const ActionButton = ({ icon, label, onClick, className = '' }: { icon: React.Re
   </button>
 );
 
-export default function SidebarRight({ selectedCount, isGroupSelected, onDelete, onAddRequestToGroup, onEdit, onMove }: SidebarRightProps) {
+export default function SidebarRight({ selectedCount, isGroupSelected, onDelete, onAddRequestToGroup, onEdit, onMove, selectedTotalPrice }: SidebarRightProps) {
   const hasSelection = selectedCount > 0;
   const isSingleSelection = selectedCount === 1;
-  // On vérifie si au moins une requête est sélectionnée (pas que des groupes)
   const hasRequestsSelected = !isGroupSelected || selectedCount > 1;
 
   return (
@@ -55,7 +55,6 @@ export default function SidebarRight({ selectedCount, isGroupSelected, onDelete,
           
           {isSingleSelection && <ActionButton icon={<Edit className="w-4 h-4 mr-3" />} label="Modifier" onClick={onEdit} />}
           
-          {/* Le bouton "Déplacer" n'apparaît que si des requêtes sont sélectionnées */}
           {hasRequestsSelected && <ActionButton icon={<Move className="w-4 h-4 mr-3" />} label="Déplacer" onClick={onMove} />}
           
           <ActionButton icon={<Archive className="w-4 h-4 mr-3" />} label="Archiver" />
@@ -65,6 +64,16 @@ export default function SidebarRight({ selectedCount, isGroupSelected, onDelete,
               onClick={onDelete}
               className="text-red-600"
           />
+
+          {/* Affichage du prix total */}
+          {selectedTotalPrice > 0 && (
+            <div className="border-t mt-4 pt-4">
+              <h3 className="text-sm font-semibold text-gray-500 mb-2">Total estimé</h3>
+              <p className="text-2xl font-bold text-right">
+                {selectedTotalPrice.toFixed(2)} EUR
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

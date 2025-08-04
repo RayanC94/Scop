@@ -34,6 +34,7 @@ export default function ClientOffersModal({ open, onOpenChange, request }: Clien
                   <th className="p-4 font-semibold">Spécifications du produit fournisseur</th>
                   <th className="p-4 font-semibold">Emballage</th>
                   <th className="p-4 font-semibold">Prix unitaire</th>
+                  <th className="p-4 font-semibold">Devise client</th>
                   <th className="p-4 font-semibold">Dimensions du produit</th>
                   <th className="p-4 font-semibold">Remarques</th>
                   <th className="p-4 font-semibold">Prix total</th>
@@ -69,7 +70,8 @@ export default function ClientOffersModal({ open, onOpenChange, request }: Clien
                       </td>
                       <td className="p-4 text-sm">{offer.product_specs}</td>
                       <td className="p-4 text-sm">{offer.packaging_type}</td>
-                      <td className="p-4 text-sm font-mono">{unitPrice.toFixed(2)} {offer.client_currency}</td>
+                      <td className="p-4 text-sm font-mono">{unitPrice.toFixed(2)}</td>
+                      <td className="p-4 text-sm">{offer.client_currency}</td>
                       <td className="p-4 text-sm">{offer.size || '-'}</td>
                       <td className="p-4 text-sm">{offer.remarks || '-'}</td>
                       <td className="p-4 text-sm font-mono">{totalPrice.toFixed(2)} {offer.client_currency}</td>
