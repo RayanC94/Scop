@@ -78,8 +78,8 @@ export default function ImagePreviewModal({ open, onOpenChange, imageUrl }: Imag
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="bg-black/70 data-[state=open]:animate-overlayShow fixed inset-0 z-40" />
-        <Dialog.Content className="data-[state=open]:animate-contentShow fixed top-1/2 left-1/2 w-[90vw] max-w-4xl max-h-[90vh] flex flex-col -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white shadow-lg focus:outline-none z-50 p-4">
-          <Dialog.Title className="sr-only">Aperçu de l'image</Dialog.Title>
+          <Dialog.Content className="data-[state=open]:animate-contentShow fixed top-1/2 left-1/2 w-[90vw] max-w-4xl max-h-[90vh] flex flex-col -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white shadow-lg focus:outline-none z-50 p-4">
+            <Dialog.Title className="sr-only">Aperçu de l&rsquo;image</Dialog.Title>
           <div className="relative flex-grow w-full min-h-[300px] md:min-h-[500px]">
              <Image src={imageUrl} alt="Aperçu de l'image" fill className="object-contain" />
           </div>

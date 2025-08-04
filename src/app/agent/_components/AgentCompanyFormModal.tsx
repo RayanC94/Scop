@@ -2,6 +2,7 @@
 
 import * as Dialog from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
@@ -141,7 +142,7 @@ export default function AgentCompanyFormModal({ open, onOpenChange, companyToEdi
                <input name="country_region" value={formData.country_region || ''} onChange={handleChange} placeholder="Country/Region" className="p-2 border rounded-md" />
             </div>
 
-            <h3 className="font-semibold text-lg border-b pb-2">Cachet de l'entreprise</h3>
+            <h3 className="font-semibold text-lg border-b pb-2">Cachet de l&rsquo;entreprise</h3>
             <div>
                 <input 
                     type="file" 
@@ -152,7 +153,7 @@ export default function AgentCompanyFormModal({ open, onOpenChange, companyToEdi
                 {formData.stamp_image_url && !stampFile && (
                     <div className="mt-2">
                         <p className="text-sm text-gray-600">Cachet actuel :</p>
-                        <img src={formData.stamp_image_url} alt="Cachet" className="h-20 w-auto border rounded-md mt-1" />
+                        <Image src={formData.stamp_image_url} alt="Cachet" width={80} height={80} className="h-20 w-auto border rounded-md mt-1" />
                     </div>
                 )}
             </div>

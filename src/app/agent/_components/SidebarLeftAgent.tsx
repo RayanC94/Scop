@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { LayoutDashboard, FileText, ShoppingCart, Archive, Users, Building, LogOut } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingCart, Archive, Building, LogOut } from 'lucide-react';
 
 const SidebarLeftAgent = () => {
   const router = useRouter();

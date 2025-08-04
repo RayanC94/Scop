@@ -3,14 +3,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-// IMPORTANT: Utilisez la clé de service "service_role" qui a tous les droits
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
-
 export async function POST(request: NextRequest) {
   try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceRoleKey) {
+      throw new Error("Les variables d'environnement Supabase ne sont pas définies.");
+    }
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
     const { request_ids } = await request.json();
 
     if (!request_ids || !Array.isArray(request_ids)) {
@@ -30,7 +31,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data, { status: 200 });
 
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message || "Une erreur interne est survenue." }, { status: 500 });
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Une erreur interne est survenue.';
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
-}

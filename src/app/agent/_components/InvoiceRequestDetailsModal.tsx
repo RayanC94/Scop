@@ -57,12 +57,14 @@ export default function InvoiceRequestDetailsModal({ open, onOpenChange, request
           }
 
           // Correction : On utilise response.json() pour extraire les données
-          const data = await response.json();
-          
-          const detailedItems = data.map((req: any) => {
-            const visibleOffer = req.offers.find((o: Offer) => o.is_visible_to_client);
-            return visibleOffer ? { ...req, offer: visibleOffer } : null;
-          }).filter(Boolean) as RequestWithOfferDetails[];
+            const data: (Request & { offers: Offer[] })[] = await response.json();
+
+            const detailedItems = data
+              .map(req => {
+                const visibleOffer = req.offers.find((o: Offer) => o.is_visible_to_client);
+                return visibleOffer ? { ...req, offer: visibleOffer } : null;
+              })
+              .filter(Boolean) as RequestWithOfferDetails[];
           setDetails(detailedItems);
 
         } catch (error) {

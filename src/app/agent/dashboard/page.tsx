@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import { Request, Offer, RequestGroup as RequestGroupType } from '@/types';
-import { Eye, Edit, Trash2, ChevronDown, FileText } from 'lucide-react';
+import { Request, RequestGroup as RequestGroupType } from '@/types';
+import { ChevronDown, FileText } from 'lucide-react';
 import Image from 'next/image';
 import AddOfferModal from '../_components/AddOfferModal';
 import ImagePreviewModal from '../_components/ImagePreviewModal';
@@ -128,10 +128,11 @@ export default function AgentDashboardPage() {
       
       setAllItems(combinedItems);
 
-    } catch (err: any) {
-      setError(err.message || "Impossible de charger les données.");
-      console.error(err);
-    } finally {
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Impossible de charger les données.';
+        setError(message);
+        console.error(err);
+      } finally {
       setLoading(false); // On met setLoading(false) ici dans tous les cas
     }
   }, [router]);

@@ -38,13 +38,16 @@ export default function AgentInvoicesPage() {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<InvoiceRequest | null>(null);
 
-  const fetchInvoiceRequests = useCallback(async () => {
-    setLoading(true);
-    const { data, error } = await supabase.rpc('get_agent_invoice_requests');
-    if (error) console.error('Erreur RPC:', error);
-    else setRequests(data as any);
-    setLoading(false);
-  }, []);
+    const fetchInvoiceRequests = useCallback(async () => {
+      setLoading(true);
+      const { data, error } = await supabase.rpc('get_agent_invoice_requests');
+      if (error) {
+        console.error('Erreur RPC:', error);
+      } else if (data) {
+        setRequests(data as InvoiceRequest[]);
+      }
+      setLoading(false);
+    }, []);
 
   useEffect(() => {
     fetchInvoiceRequests();

@@ -64,9 +64,9 @@ export default function OffersModal({ open, onOpenChange, request, onOfferUpdate
       <Dialog.Portal>
         <Dialog.Overlay className="bg-black/40 data-[state=open]:animate-overlayShow fixed inset-0 z-40" />
         <Dialog.Content className="data-[state=open]:animate-contentShow fixed top-1/2 left-1/2 max-h-[90vh] w-[90vw] max-w-5xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg focus:outline-none z-50 flex flex-col">
-          <Dialog.Title className="text-xl font-bold mb-4 text-gray-900">
-            Gérer les offres pour "{request.name}"
-          </Dialog.Title>
+            <Dialog.Title className="text-xl font-bold mb-4 text-gray-900">
+              Gérer les offres pour &quot;{request.name}&quot;
+            </Dialog.Title>
           <div className="flex-1 overflow-y-auto -mx-6 px-6">
             <table className="w-full text-left">
               <thead className="sticky top-0 bg-white z-10">

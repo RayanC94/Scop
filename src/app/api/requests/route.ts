@@ -2,13 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { Request, RequestGroup as RequestGroupType, Offer } from '@/types';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error("Les variables d'environnement Supabase ne sont pas définies !");
-}
-
 // Type pour la réponse de l'API
 type RequestApiResponse = Request & {
   offers: Offer[];
@@ -18,14 +11,20 @@ type RequestApiResponse = Request & {
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    const token = authHeader?.split(' ')[1];
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !serviceRoleKey) {
+        throw new Error("Les variables d'environnement Supabase ne sont pas définies !");
+      }
 
-    // Crée un client Supabase avec la clé de service pour bypasser les RLS
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
+      const authHeader = request.headers.get('Authorization');
+      const token = authHeader?.split(' ')[1];
+      if (!token) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      // Crée un client Supabase avec la clé de service pour bypasser les RLS
+      const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     // Vérifie la validité du token et le rôle de l'utilisateur
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
@@ -48,8 +47,9 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(data as RequestApiResponse[], { status: 200 });
 
-  } catch (e: any) {
-    console.error("Erreur inattendue dans l'API Route:", e);
-    return NextResponse.json({ error: e.message || "Une erreur interne est survenue." }, { status: 500 });
+    } catch (e: unknown) {
+      console.error("Erreur inattendue dans l'API Route:", e);
+      const message = e instanceof Error ? e.message : 'Une erreur interne est survenue.';
+      return NextResponse.json({ error: message }, { status: 500 });
+    }
   }
-}

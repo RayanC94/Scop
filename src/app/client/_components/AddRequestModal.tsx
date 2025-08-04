@@ -48,12 +48,13 @@ export default function AddRequestModal({ open, onOpenChange, onAddRequest }: Ad
         .from('request-images')
         .getPublicUrl(filePath);
 
-      onAddRequest({ 
-        name, 
-        quantity, 
-        image_url: urlData.publicUrl, 
-        specification 
-      });
+        onAddRequest({
+          name,
+          quantity,
+          image_url: urlData.publicUrl,
+          specification,
+          created_at: new Date().toISOString(),
+        });
 
       // Reset form
       setName('');

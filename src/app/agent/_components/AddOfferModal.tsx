@@ -59,10 +59,11 @@ export default function AddOfferModal({ open, onOpenChange, request, onOfferAdde
     }));
   }, [formData.client_currency]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    // @ts-ignore
-    const isNumber = type === 'number';
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    const isNumber = e.target instanceof HTMLInputElement && e.target.type === 'number';
     setFormData(prev => ({
       ...prev,
       [name]: isNumber ? parseFloat(value) || 0 : value,
@@ -138,7 +139,7 @@ export default function AddOfferModal({ open, onOpenChange, request, onOfferAdde
         <Dialog.Content className="data-[state=open]:animate-contentShow fixed top-1/2 left-1/2 h-full max-h-[90vh] w-[90vw] max-w-3xl -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white shadow-lg focus:outline-none z-50 flex flex-col">
           <div className="p-6 border-b">
             <Dialog.Title className="text-xl font-bold text-gray-900">
-              Ajouter une offre pour "{request.name}"
+              Ajouter une offre pour &quot;{request.name}&quot;
             </Dialog.Title>
           </div>
           <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6">
